@@ -1,0 +1,299 @@
+---
+title: "Nasdaq-100 Historical Performance Dashboard"
+subtitle: "Unified Dataset Explorer & Analytics"
+author: "Antigravity Stock Dataset Builder"
+date: "2026-06-30"
+format:
+  html:
+    theme:
+      dark: darkly
+      light: flatly
+    toc: true
+    toc-location: left
+    code-fold: true
+    code-summary: "Show Python Code"
+    embed-resources: true
+    page-layout: full
+---
+
+```{python}
+#| label: setup
+#| include: false
+import pandas as pd
+import numpy as np
+import plotly.graph_objects as go
+import plotly.express as px
+from IPython.display import display, HTML
+
+# Load the unified historical dataset
+df = pd.read_csv("downloads/nasdaq100_historical.csv")
+df['Date'] = pd.to_datetime(df['Date'])
+```
+
+## 📊 Dataset Overview
+
+We have successfully built a unified historical dataset containing daily stock price data for the constituents of the **Nasdaq-100** index.
+
+```{python}
+#| label: overview-stats
+#| echo: false
+total_rows = len(df)
+unique_tickers = df['Ticker'].nunique()
+min_date = df['Date'].min().strftime('%Y-%m-%d')
+max_date = df['Date'].max().strftime('%Y-%m-%d')
+
+kpi_html = f"""
+<div style="display: flex; gap: 15px; flex-wrap: wrap; margin: 20px 0;">
+    <div style="flex: 1; min-width: 200px; padding: 20px; border-radius: 12px; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border: 1px solid #334155;">
+        <div style="font-size: 0.85rem; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Total Records</div>
+        <div style="font-size: 2rem; font-weight: 700; color: #f8fafc; margin-top: 5px;">{total_rows:,}</div>
+        <div style="font-size: 0.8rem; color: #64748b; margin-top: 5px;">Total daily price rows</div>
+    </div>
+    <div style="flex: 1; min-width: 200px; padding: 20px; border-radius: 12px; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border: 1px solid #334155;">
+        <div style="font-size: 0.85rem; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Tickers Represented</div>
+        <div style="font-size: 2rem; font-weight: 700; color: #38bdf8; margin-top: 5px;">{unique_tickers}</div>
+        <div style="font-size: 0.8rem; color: #38bdf8; margin-top: 5px;">Nasdaq-100 constituents</div>
+    </div>
+    <div style="flex: 1; min-width: 200px; padding: 20px; border-radius: 12px; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border: 1px solid #334155;">
+        <div style="font-size: 0.85rem; color: #94a3b8; font-weight: 600; text-transform: uppercase;">Date Range</div>
+        <div style="font-size: 1.5rem; font-weight: 700; color: #f8fafc; margin-top: 10px;">{min_date} to {max_date}</div>
+        <div style="font-size: 0.8rem; color: #64748b; margin-top: 5px;">Up to 10 years of trading history</div>
+    </div>
+</div>
+"""
+display(HTML(kpi_html))
+```
+
+---
+
+## 🚀 Relative Performance Comparison (Magnificent Seven)
+
+This chart compares the cumulative return of the **Magnificent Seven** tech giants starting from July 2016. A `$100` investment at the beginning of the period is tracked over time.
+
+```{python}
+#| label: relative-performance
+mag7_tickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA']
+df_mag7 = df[df['Ticker'].isin(mag7_tickers)].copy()
+
+# Pivot data to get Close prices aligned by Date
+df_pivot = df_mag7.pivot(index='Date', columns='Ticker', values='Close').dropna()
+
+# Calculate cumulative returns (normalized to $100 starting value)
+df_normalized = (df_pivot / df_pivot.iloc[0]) * 100
+
+fig_cum = go.Figure()
+colors = {
+    'AAPL': '#a3a3a3',   # Silver/Gray
+    'MSFT': '#00a4ef',   # Blue
+    'GOOGL': '#ea4335',  # Red
+    'AMZN': '#ff9900',   # Orange
+    'NVDA': '#76b900',   # Green
+    'META': '#0668e1',   # Royal Blue
+    'TSLA': '#cc0000'    # Deep Red
+}
+
+for ticker in mag7_tickers:
+    if ticker in df_normalized.columns:
+        fig_cum.add_trace(go.Scatter(
+            x=df_normalized.index,
+            y=df_normalized[ticker],
+            mode='lines',
+            name=ticker,
+            line=dict(color=colors.get(ticker, '#ffffff'), width=2)
+        ))
+
+fig_cum.update_layout(
+    title='Growth of $100 Investment (Since July 2016)',
+    xaxis_title='Date',
+    yaxis_title='Investment Value (USD)',
+    template='plotly_dark',
+    height=600,
+    hovermode='x unified',
+    yaxis=dict(type='log')  # Use log scale since Nvidia growth is massive
+)
+fig_cum.show(config={'responsive': True})
+```
+
+---
+
+## 📈 Apple Inc. (AAPL) Performance Detail
+
+Since Apple was our starting stock, here is its standalone 10-year closing price trajectory.
+
+```{python}
+#| label: aapl-detail
+df_aapl = df[df['Ticker'] == 'AAPL'].sort_values(by='Date').reset_index(drop=True)
+
+fig_aapl = go.Figure()
+fig_aapl.add_trace(go.Scatter(
+    x=df_aapl['Date'],
+    y=df_aapl['Close'],
+    mode='lines',
+    name='AAPL Close Price',
+    line=dict(color='#06b6d4', width=2),
+    fill='tozeroy',
+    fillcolor='rgba(6, 182, 212, 0.08)'
+))
+
+fig_aapl.update_layout(
+    title='AAPL Historical Stock Price',
+    xaxis_title='Date',
+    yaxis_title='Stock Price (USD)',
+    template='plotly_dark',
+    height=450,
+    margin=dict(l=40, r=40, t=60, b=40)
+)
+fig_aapl.show(config={'responsive': True})
+```
+
+---
+
+## 🔮 Stock Price Forecasting (1-Year Projection)
+
+This interactive chart uses a statistical trend projection (fitted on the last 2 years of trading history) to forecast the stock price 1 year (252 trading days) into the future. Select a stock from the dropdown menu to see its prediction along with a **95% confidence interval** boundary representing standard volatility.
+
+```{python}
+#| label: stock-forecasting
+import numpy as np
+
+forecast_tickers = ['AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'META', 'TSLA']
+fig_forecast = go.Figure()
+
+buttons = []
+total_tickers = len(forecast_tickers)
+
+for i, ticker in enumerate(forecast_tickers):
+    df_t = df[df['Ticker'] == ticker].sort_values(by='Date').reset_index(drop=True)
+    df_fit = df_t.tail(500).copy()
+    
+    x_fit = np.arange(len(df_fit))
+    y_fit = df_fit['Close'].values
+    slope, intercept = np.polyfit(x_fit, y_fit, 1)
+    
+    residuals = y_fit - (slope * x_fit + intercept)
+    std_err = np.std(residuals)
+    
+    last_date = df_fit['Date'].max()
+    future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1), periods=365)
+    future_trading_dates = future_dates[future_dates.dayofweek < 5][:252]
+    
+    x_pred = np.arange(len(df_fit), len(df_fit) + len(future_trading_dates))
+    y_pred = slope * x_pred + intercept
+    
+    y_upper = y_pred + 1.96 * std_err
+    y_lower = np.maximum(y_pred - 1.96 * std_err, 0)
+    
+    is_visible = (i == 0)
+    
+    # Trace 0: Historical Close
+    fig_forecast.add_trace(go.Scatter(
+        x=df_t['Date'].tail(500),
+        y=df_t['Close'].tail(500),
+        mode='lines',
+        name=f'{ticker} Historical',
+        line=dict(color='#06b6d4', width=2),
+        visible=is_visible
+    ))
+    
+    # Trace 1: Forecasted Trend
+    fig_forecast.add_trace(go.Scatter(
+        x=future_trading_dates,
+        y=y_pred,
+        mode='lines',
+        name=f'{ticker} Forecast',
+        line=dict(color='#e11d48', width=2, dash='dash'),
+        visible=is_visible
+    ))
+    
+    # Trace 2: Upper Bound
+    fig_forecast.add_trace(go.Scatter(
+        x=future_trading_dates,
+        y=y_upper,
+        mode='lines',
+        name='Upper 95% Bound',
+        line=dict(color='rgba(225, 29, 72, 0.2)', width=1),
+        visible=is_visible,
+        showlegend=False
+    ))
+    
+    # Trace 3: Lower Bound
+    fig_forecast.add_trace(go.Scatter(
+        x=future_trading_dates,
+        y=y_lower,
+        mode='lines',
+        name='Lower 95% Bound',
+        line=dict(color='rgba(225, 29, 72, 0.2)', width=1),
+        fill='tonexty',
+        fillcolor='rgba(225, 29, 72, 0.05)',
+        visible=is_visible,
+        showlegend=False
+    ))
+    
+    visibility_mask = [False] * (total_tickers * 4)
+    visibility_mask[i*4 : (i+1)*4] = [True] * 4
+    
+    button = dict(
+        label=ticker,
+        method="update",
+        args=[
+            {"visible": visibility_mask},
+            {"title": f"1-Year Price Projection & 95% Confidence Interval: {ticker}"}
+        ]
+    )
+    buttons.append(button)
+
+fig_forecast.update_layout(
+    updatemenus=[
+        dict(
+            active=0,
+            buttons=buttons,
+            direction="down",
+            pad={"r": 10, "t": 10},
+            showactive=True,
+            x=0.02,
+            xanchor="left",
+            y=1.15,
+            yanchor="top",
+            font=dict(color='#000000')
+        )
+    ],
+    title=f"1-Year Price Projection & 95% Confidence Interval: {forecast_tickers[0]}",
+    xaxis_title="Date",
+    yaxis_title="Stock Price (USD)",
+    template="plotly_dark",
+    height=600,
+    hovermode="x unified",
+    margin=dict(l=40, r=40, t=100, b=40)
+)
+fig_forecast.show(config={'responsive': True})
+```
+
+---
+
+## 🗂️ Sample Data Explorer (Latest 10 Days)
+
+Here are the latest daily records for the top 5 components by weight.
+
+```{python}
+#| label: data-table-explorer
+#| echo: false
+top5_tickers = ['AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL']
+latest_dates = sorted(df['Date'].unique())[-10:]
+
+df_explorer = df[(df['Ticker'].isin(top5_tickers)) & (df['Date'].isin(latest_dates))].copy()
+df_explorer = df_explorer.sort_values(by=['Date', 'Ticker'], ascending=[False, True])
+
+df_explorer['Date'] = df_explorer['Date'].dt.strftime('%Y-%m-%d')
+df_explorer['Open'] = df_explorer['Open'].map('${:,.2f}'.format)
+df_explorer['High'] = df_explorer['High'].map('${:,.2f}'.format)
+df_explorer['Low'] = df_explorer['Low'].map('${:,.2f}'.format)
+df_explorer['Close'] = df_explorer['Close'].map('${:,.2f}'.format)
+df_explorer['Volume'] = df_explorer['Volume'].map('{:,}'.format)
+
+table_html = df_explorer.to_html(index=False, classes="table table-hover table-striped")
+display(HTML(table_html))
+```
+
+---
+
+*Dashboard generated dynamically using Quarto. Stock data extracted from Nasdaq historical quotes database.*
