@@ -270,6 +270,93 @@ fig_forecast.show(config={'responsive': True})
 
 ---
 
+## 🎨 Advanced Market Analytics & Visualizations
+
+This section presents two advanced analytical visualizations designed to uncover correlations and risk-reward profiles across the Nasdaq-100 constituents.
+
+### 1. Daily Return Correlation Matrix (Heatmap)
+This interactive heatmap illustrates the correlation of daily percentage returns between the **Magnificent Seven** stocks plus **Netflix (NFLX)** over the last 2 years. Higher values (closer to 1.0) represent stocks that move in tandem, highlighting sector-wide trends.
+
+```{python}
+#| label: correlation-heatmap
+# Pivot the close prices of Mag7 + NFLX
+analysis_tickers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA', 'NFLX']
+df_analysis = df[df['Ticker'].isin(analysis_tickers)].copy()
+df_pivot_returns = df_analysis.pivot(index='Date', columns='Ticker', values='Close').pct_change().dropna()
+
+# Compute correlation matrix
+corr_matrix = df_pivot_returns.corr()
+
+# Plot heatmap
+fig_corr = px.imshow(
+    corr_matrix,
+    text_auto=".2f",
+    color_continuous_scale="RdBu",
+    zmin=-1,
+    zmax=1,
+    title="Daily Stock Return Correlation Matrix (2-Year)",
+    labels=dict(color="Correlation Coefficient")
+)
+fig_corr.update_layout(
+    template="plotly_dark",
+    height=550,
+    margin=dict(l=40, r=40, t=60, b=40)
+)
+fig_corr.show(config={'responsive': True})
+```
+
+### 2. Risk vs. Reward Profile (Annualized Volatility vs. Annualized Return)
+This scatter plot maps the annualized return against the annualized volatility (risk) for the **Top 15 constituents** of the index. Bubbles are sized relative to the stock's average daily trading volume, helping visualize where different assets sit on the risk-reward spectrum.
+
+```{python}
+#| label: risk-reward-scatter
+top15 = ['AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL', 'META', 'TSLA', 'AVGO', 'PEP', 'COST', 'CSCO', 'ADBE', 'AMD', 'NFLX', 'TMUS']
+df_top15 = df[df['Ticker'].isin(top15)].copy()
+
+# Compute returns
+df_top15['Return'] = df_top15.groupby('Ticker')['Close'].pct_change()
+
+# Aggregate stats over the last 2 years
+latest_2y_date = df['Date'].max() - pd.Timedelta(days=365 * 2)
+df_recent_top15 = df_top15[df_top15['Date'] >= latest_2y_date]
+
+stats = df_recent_top15.groupby('Ticker').agg(
+    Avg_Return=('Return', 'mean'),
+    Vol_Return=('Return', 'std'),
+    Avg_Volume=('Volume', 'mean')
+).reset_index()
+
+# Annualize stats (assuming 252 trading days)
+stats['Annualized_Return'] = stats['Avg_Return'] * 252 * 100
+stats['Annualized_Volatility'] = stats['Vol_Return'] * np.sqrt(252) * 100
+
+fig_scatter = px.scatter(
+    stats,
+    x="Annualized_Volatility",
+    y="Annualized_Return",
+    text="Ticker",
+    size="Avg_Volume",
+    color="Ticker",
+    labels={
+        "Annualized_Volatility": "Risk (Annualized Volatility %)",
+        "Annualized_Return": "Reward (Annualized Return %)",
+        "Avg_Volume": "Avg Daily Volume"
+    },
+    title="Risk vs. Reward Profile: Top 15 Nasdaq-100 Constituents (2-Year)"
+)
+
+fig_scatter.update_traces(textposition="top center", marker=dict(line=dict(width=1, color='White')))
+fig_scatter.update_layout(
+    template="plotly_dark",
+    height=600,
+    showlegend=False,
+    margin=dict(l=40, r=40, t=60, b=40)
+)
+fig_scatter.show(config={'responsive': True})
+```
+
+---
+
 ## 🗂️ Sample Data Explorer (Latest 10 Days)
 
 Here are the latest daily records for the top 5 components by weight.
